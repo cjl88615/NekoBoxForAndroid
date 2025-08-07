@@ -4,160 +4,85 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release Tag"
+        description: "Release tag，随便填个版本号"
         required: true
-      publish:
-        description: "Publish: If want ignore"
-        required: false
-      play:
-        description: "Play: If want ignore"
-        required: false
 
 jobs:
+##############################################################################
+# 1) 先编译本项目的本地 native 库 (libcore) 并缓存 .aar
+##############################################################################
   libcore:
-    name: Native Build (LibCore)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      # 安装 NDK r25c（兼容 gomobile）
-      - name: Setup NDK r25c
-        id: ndk
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: "r25c"
-      - name: Golang Status
-        run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
-      - name: Libcore Status
-        run: git ls-files libcore | xargs cat | sha1sum > libcore_status
-      - name: LibCore Cache
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            app/libs/libcore.aar
-          key: ${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}
-      - name: Install Golang
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/setup-go@v5
-        with:
-          go-version: ^1.24
-      - name: Native Build
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: ./run lib core
+      - uses: actions/checkout@v4
 
-  build:
-    name: Build OSS APK
-    runs-on: ubuntu-latest
-    needs:
-      - libcore
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      # 再次安装 NDK r25c（每个 job 都需独立安装）
+      # (1) 安装 NDK r25c —— 用别名 r25c 避免 404:contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}:contentReference[oaicite:2]{index=2}
       - name: Setup NDK r25c
         id: ndk
         uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: "r25c"
-      - name: Golang Status
-        run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
-      - name: Libcore Status
-        run: git ls-files libcore | xargs cat | sha1sum > libcore_status
-      - name: LibCore Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            app/libs/libcore.aar
-          key: ${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}
-      - name: Gradle cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle
-          key: gradle-oss-${{ hashFiles('**/*.gradle.kts') }}
-      - name: Gradle Build
+        with: { ndk-version: "r25c" }
+
+      # (2) Golang 环境 & 构建 libcore
+      - uses: actions/setup-go@v5
+        with: { go-version: ^1.24 }
+      - run: ./run lib core
+
+##############################################################################
+# 2) 编译 APK（OSS 版）
+##############################################################################
+  build:
+    runs-on: ubuntu-latest
+    needs: libcore
+    steps:
+      - uses: actions/checkout@v4
+
+      # 同样安装 NDK r25c
+      - name: Setup NDK r25c
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with: { ndk-version: "r25c" }
+
+      # —— 防守护进程 OOM：先杀旧 daemon，再写 gradle.properties ——:contentReference[oaicite:3]{index=3}:contentReference[oaicite:4]{index=4}:contentReference[oaicite:5]{index=5}
+      - name: Kill old Gradle daemons
+        run: rm -rf ~/.gradle/daemon
+
+      - name: Inject gradle.properties
+        run: |
+          cat > gradle.properties <<'EOF'
+          org.gradle.daemon=false
+          org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+          org.gradle.unsafe.configuration-cache=false
+          EOF
+
+      # 构建 APK，显示完整路径
+      - name: Assemble OSS APK
         env:
-          BUILD_PLUGIN: none
+          JAVA_TOOL_OPTIONS: "-Xmx2g"
+          GRADLE_OPTS: "-Xmx2g -Dkotlin.daemon.jvm.options=-Xmx1g"
         run: |
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
-          # 使用 setup-ndk 步骤中的 ndk-path
-          echo "Using NDK: ${{ steps.ndk.outputs.ndk-path }}"
           echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
-          export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           ./run init action gradle
-          # 加上 --no-daemon 避免守护进程崩溃
-          ./gradlew --no-daemon app:assembleOssRelease
-          APK=$(find app/build/outputs/apk -name '*arm64-v8a*.apk')
-          APK=$(dirname $APK)
-          echo "APK=$APK" >> $GITHUB_ENV
+          ./gradlew --no-daemon --no-configuration-cache app:assembleOssRelease
+          find app/build/outputs -name '*.apk' -print
+
+      # 输出构建产物
       - uses: actions/upload-artifact@v4
         with:
-          name: APKs
-          path: ${{ env.APK }}
+          name: APK
+          path: app/build/outputs/apk/**/app-*.apk
 
+##############################################################################
+# 3) （可选）发布 GitHub Release，如果不需要可删掉这个 job
+##############################################################################
   publish:
-    name: Publish Release
-    if: github.event.inputs.publish != 'y'
+    if: false   # 默认为 false，不自动发 Release
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: APKs
-          path: artifacts
-      - name: Release
-        run: |
-          wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.13.0/ghr_v0.13.0_linux_amd64.tar.gz
-          tar -xvf ghr.tar.gz
-          mv ghr*linux_amd64/ghr .
-          mkdir apks
-          find artifacts -name "*.apk" -exec cp {} apks \;
-          ./ghr -delete -t "${{ github.token }}" -n "${{ github.event.inputs.tag }}" "${{ github.event.inputs.tag }}" apks
-
-  play:
-    name: Build Play Bundle
-    if: github.event.inputs.play != 'y'
-    runs-on: ubuntu-latest
-    needs:
-      - libcore
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      # 安装 NDK r25c，避免使用不兼容的高版本
-      - name: Setup NDK r25c
-        id: ndk
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: "r25c"
-      - name: Golang Status
-        run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
-      - name: Libcore Status
-        run: git ls-files libcore | xargs cat | sha1sum > libcore_status
-      - name: LibCore Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            app/libs/libcore.aar
-          key: ${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}
-      - name: Gradle cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle
-          key: gradle-play-${{ hashFiles('**/*.gradle.kts') }}
-      - name: Checkout Library
-        run: git submodule update --init 'app/*'
-      - name: Gradle Build
-        run: |
-          echo "sdk.dir=${ANDROID_HOME}" > local.properties
-          echo "Using NDK: ${{ steps.ndk.outputs.ndk-path }}"
-          echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
-          export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
-          ./run init action gradle
-          ./gradlew --no-daemon bundlePlayRelease
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AAB
-          path: app/build/outputs/bundle/playRelease/app-play-release.aab
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: APK, path: artifacts }
+      - run: |
+          wget -qO- https://github.com/tcnksm/ghr/releases/download/v0.13.0/ghr_v0.13.0_linux_amd64.tar.gz | tar xz
+          ./ghr_v0.13.0_linux_amd64/ghr -t "${{ github.token }}" "${{ github.event.inputs.tag }}" artifacts
