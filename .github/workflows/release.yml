@@ -20,12 +20,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      # 安装 NDK r25.2.9519653，并将路径导出为 ndk-path
-      - name: Setup NDK 25
+      # 安装 NDK r25c（兼容 gomobile）
+      - name: Setup NDK r25c
         id: ndk
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: "25.2.9519653"
+          ndk-version: "r25c"
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -54,12 +54,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      # 再次安装同版本 NDK，输出路径供后续使用
-      - name: Setup NDK 25
+      # 再次安装 NDK r25c（每个 job 都需独立安装）
+      - name: Setup NDK r25c
         id: ndk
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: "25.2.9519653"
+          ndk-version: "r25c"
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -79,12 +79,13 @@ jobs:
         env:
           BUILD_PLUGIN: none
         run: |
-          # 使用安装好的 NDK 设置 local.properties
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          # 使用 setup-ndk 步骤中的 ndk-path
+          echo "Using NDK: ${{ steps.ndk.outputs.ndk-path }}"
           echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           ./run init action gradle
-          # 继续使用 --no-daemon 避免守护进程崩溃
+          # 加上 --no-daemon 避免守护进程崩溃
           ./gradlew --no-daemon app:assembleOssRelease
           APK=$(find app/build/outputs/apk -name '*arm64-v8a*.apk')
           APK=$(dirname $APK)
@@ -125,11 +126,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup NDK 25
+      # 安装 NDK r25c，避免使用不兼容的高版本
+      - name: Setup NDK r25c
         id: ndk
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: "25.2.9519653"
+          ndk-version: "r25c"
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -150,6 +152,7 @@ jobs:
       - name: Gradle Build
         run: |
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          echo "Using NDK: ${{ steps.ndk.outputs.ndk-path }}"
           echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           ./run init action gradle
