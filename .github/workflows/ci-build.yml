@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   libcore:
@@ -42,13 +43,16 @@ jobs:
         run: |
           chmod +x run
           find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
+          mkdir -p build-logs
 
       - name: Build libcore AAR
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
           NDK: ${{ steps.ndk.outputs.ndk-path }}
           BUILD_PLUGIN: none
-        run: ./run lib core
+        run: |
+          set -o pipefail
+          ./run lib core 2>&1 | tee build-logs/libcore.log
 
       - name: Upload libcore AAR
         uses: actions/upload-artifact@v4
@@ -56,6 +60,27 @@ jobs:
           name: libcore-aar
           path: app/libs/libcore.aar
           if-no-files-found: error
+
+      - name: Report libcore failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > failure-summary.md <<EOF
+          ## CI Build APK failed in job: libcore
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          Commit: ${{ github.sha }}
+
+          ### libcore log tail
+
+          \`\`\`
+          $(if [ -f build-logs/libcore.log ]; then tail -n 180 build-logs/libcore.log; else echo 'No libcore.log was captured. Failure likely happened before the libcore build command.'; fi)
+          \`\`\`
+          EOF
+          gh issue create \
+            --title "CI Build APK failed in libcore - run ${{ github.run_number }}" \
+            --body-file failure-summary.md || true
 
   build-apk:
     name: Build OSS release APK
@@ -89,6 +114,7 @@ jobs:
         run: |
           chmod +x run
           find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
+          mkdir -p build-logs
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
 
@@ -109,7 +135,9 @@ jobs:
             -dname "CN=NekoBox CI, OU=CI, O=NekoBox, L=CI, S=CI, C=US"
 
       - name: Prepare Gradle assets
-        run: ./run init action gradle
+        run: |
+          set -o pipefail
+          ./run init action gradle 2>&1 | tee build-logs/prepare-gradle-assets.log
 
       - name: Assemble OSS release APK
         env:
@@ -118,7 +146,9 @@ jobs:
           ALIAS_PASS: ci-temporary-password
           BUILD_PLUGIN: none
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dkotlin.daemon.jvm.options=-Xmx1536m
-        run: ./gradlew --no-daemon app:assembleOssRelease
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon app:assembleOssRelease 2>&1 | tee build-logs/gradle.log
 
       - name: Show APK outputs
         run: find app/build/outputs/apk -name '*.apk' -type f -print -exec ls -lh {} \;
@@ -129,3 +159,30 @@ jobs:
           name: nekobox-oss-release-apks
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
+
+      - name: Report APK build failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > failure-summary.md <<EOF
+          ## CI Build APK failed in job: build-apk
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          Commit: ${{ github.sha }}
+
+          ### prepare-gradle-assets log tail
+
+          \`\`\`
+          $(if [ -f build-logs/prepare-gradle-assets.log ]; then tail -n 120 build-logs/prepare-gradle-assets.log; else echo 'No prepare-gradle-assets.log was captured.'; fi)
+          \`\`\`
+
+          ### gradle log tail
+
+          \`\`\`
+          $(if [ -f build-logs/gradle.log ]; then tail -n 180 build-logs/gradle.log; else echo 'No gradle.log was captured. Failure likely happened before Gradle assemble.'; fi)
+          \`\`\`
+          EOF
+          gh issue create \
+            --title "CI Build APK failed in build-apk - run ${{ github.run_number }}" \
+            --body-file failure-summary.md || true
