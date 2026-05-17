@@ -10,8 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  issues: write
+  contents: read
 
 jobs:
   libcore:
@@ -46,7 +45,7 @@ jobs:
         run: |
           chmod +x run
           find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
-          mkdir -p build-logs .ci-failures
+          mkdir -p build-logs
 
       - name: Build libcore AAR
         env:
@@ -64,32 +63,13 @@ jobs:
           path: app/libs/libcore.aar
           if-no-files-found: error
 
-      - name: Report libcore failure
+      - name: Upload libcore logs on failure
         if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p .ci-failures
-          cat > .ci-failures/latest-libcore.md <<EOF
-          ## CI Build APK failed in job: libcore
-
-          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          Commit: ${{ github.sha }}
-
-          ### libcore log tail
-
-          \`\`\`
-          $(if [ -f build-logs/libcore.log ]; then tail -n 220 build-logs/libcore.log; else echo 'No libcore.log was captured. Failure likely happened before the libcore build command.'; fi)
-          \`\`\`
-          EOF
-          gh issue create \
-            --title "CI Build APK failed in libcore - run ${{ github.run_number }}" \
-            --body-file .ci-failures/latest-libcore.md || true
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .ci-failures/latest-libcore.md
-          git commit -m "Record latest libcore CI failure [skip ci]" || true
-          git push || true
+        uses: actions/upload-artifact@v4
+        with:
+          name: libcore-failure-logs
+          path: build-logs/**/*.log
+          if-no-files-found: ignore
 
   build-apk:
     name: Build OSS release APK
@@ -123,7 +103,7 @@ jobs:
         run: |
           chmod +x run
           find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
-          mkdir -p build-logs .ci-failures
+          mkdir -p build-logs
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
 
@@ -133,8 +113,10 @@ jobs:
           ALIAS_NAME: ci
           ALIAS_PASS: ci-temporary-password
         run: |
+          rm -f release.keystore
           keytool -genkeypair \
             -keystore release.keystore \
+            -storetype PKCS12 \
             -storepass "$KEYSTORE_PASS" \
             -alias "$ALIAS_NAME" \
             -keypass "$ALIAS_PASS" \
@@ -169,35 +151,10 @@ jobs:
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
-      - name: Report APK build failure
+      - name: Upload APK build logs on failure
         if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p .ci-failures
-          cat > .ci-failures/latest-build-apk.md <<EOF
-          ## CI Build APK failed in job: build-apk
-
-          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          Commit: ${{ github.sha }}
-
-          ### prepare-gradle-assets log tail
-
-          \`\`\`
-          $(if [ -f build-logs/prepare-gradle-assets.log ]; then tail -n 160 build-logs/prepare-gradle-assets.log; else echo 'No prepare-gradle-assets.log was captured.'; fi)
-          \`\`\`
-
-          ### gradle log tail
-
-          \`\`\`
-          $(if [ -f build-logs/gradle.log ]; then tail -n 220 build-logs/gradle.log; else echo 'No gradle.log was captured. Failure likely happened before Gradle assemble.'; fi)
-          \`\`\`
-          EOF
-          gh issue create \
-            --title "CI Build APK failed in build-apk - run ${{ github.run_number }}" \
-            --body-file .ci-failures/latest-build-apk.md || true
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .ci-failures/latest-build-apk.md
-          git commit -m "Record latest APK CI failure [skip ci]" || true
-          git push || true
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-failure-logs
+          path: build-logs/**/*.log
+          if-no-files-found: ignore
