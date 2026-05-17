@@ -1,0 +1,1 @@
+trigger arm64 debug apk build
