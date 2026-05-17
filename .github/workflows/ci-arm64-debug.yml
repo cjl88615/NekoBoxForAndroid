@@ -1,0 +1,100 @@
+name: CI Build Arm64 Debug APK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  libcore:
+    name: Build native libcore
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.6'
+          cache: true
+          cache-dependency-path: libcore/go.sum
+      - name: Setup Android NDK r25c
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+          link-to-sdk: true
+      - name: Prepare scripts
+        run: |
+          chmod +x run
+          find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
+      - name: Build libcore AAR
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          NDK: ${{ steps.ndk.outputs.ndk-path }}
+          BUILD_PLUGIN: none
+        run: ./run lib core
+      - name: Upload libcore AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm64-debug-libcore-aar
+          path: app/libs/libcore.aar
+          if-no-files-found: error
+
+  build-arm64-debug-apk:
+    name: Build arm64 OSS debug APK
+    runs-on: ubuntu-latest
+    needs: libcore
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Android NDK r25c
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+          link-to-sdk: true
+      - name: Download libcore AAR
+        uses: actions/download-artifact@v4
+        with:
+          name: arm64-debug-libcore-aar
+          path: app/libs
+      - name: Prepare build
+        run: |
+          chmod +x run
+          find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
+          ./run init action gradle
+      - name: Assemble arm64 OSS debug APK
+        env:
+          BUILD_PLUGIN: none
+          GRADLE_OPTS: -Dorg.gradle.daemon=false -Dkotlin.daemon.jvm.options=-Xmx1536m
+        run: ./gradlew --no-daemon app:assembleOssDebug -Pandroid.injected.build.abi=arm64-v8a
+      - name: Show APK outputs
+        run: find app/build/outputs/apk -name '*.apk' -type f -print -exec ls -lh {} \;
+      - name: Upload arm64 debug APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: taliabu-vpn-arm64-debug-apks
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
