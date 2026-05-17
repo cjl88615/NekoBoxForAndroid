@@ -136,6 +136,7 @@ jobs:
           ALIAS_NAME: ci
           ALIAS_PASS: ci-temporary-password
           BUILD_PLUGIN: none
+          nkmr_minify: "0"
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dkotlin.daemon.jvm.options=-Xmx1536m
         run: |
           set -o pipefail
