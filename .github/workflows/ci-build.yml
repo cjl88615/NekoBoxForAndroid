@@ -1,0 +1,131 @@
+name: CI Build APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  libcore:
+    name: Build native libcore
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.6'
+          cache: true
+          cache-dependency-path: libcore/go.sum
+
+      - name: Setup Android NDK r25c
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+          link-to-sdk: true
+
+      - name: Prepare scripts
+        run: |
+          chmod +x run
+          find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
+
+      - name: Build libcore AAR
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          NDK: ${{ steps.ndk.outputs.ndk-path }}
+          BUILD_PLUGIN: none
+        run: ./run lib core
+
+      - name: Upload libcore AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: libcore-aar
+          path: app/libs/libcore.aar
+          if-no-files-found: error
+
+  build-apk:
+    name: Build OSS release APK
+    runs-on: ubuntu-latest
+    needs: libcore
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android NDK r25c
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+          link-to-sdk: true
+
+      - name: Download libcore AAR
+        uses: actions/download-artifact@v4
+        with:
+          name: libcore-aar
+          path: app/libs
+
+      - name: Prepare scripts and local.properties
+        run: |
+          chmod +x run
+          find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
+
+      - name: Generate temporary release keystore
+        env:
+          KEYSTORE_PASS: ci-temporary-password
+          ALIAS_NAME: ci
+          ALIAS_PASS: ci-temporary-password
+        run: |
+          keytool -genkeypair \
+            -keystore release.keystore \
+            -storepass "$KEYSTORE_PASS" \
+            -alias "$ALIAS_NAME" \
+            -keypass "$ALIAS_PASS" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=NekoBox CI, OU=CI, O=NekoBox, L=CI, S=CI, C=US"
+
+      - name: Prepare Gradle assets
+        run: ./run init action gradle
+
+      - name: Assemble OSS release APK
+        env:
+          KEYSTORE_PASS: ci-temporary-password
+          ALIAS_NAME: ci
+          ALIAS_PASS: ci-temporary-password
+          BUILD_PLUGIN: none
+          GRADLE_OPTS: -Dorg.gradle.daemon=false -Dkotlin.daemon.jvm.options=-Xmx1536m
+        run: ./gradlew --no-daemon app:assembleOssRelease
+
+      - name: Show APK outputs
+        run: find app/build/outputs/apk -name '*.apk' -type f -print -exec ls -lh {} \;
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nekobox-oss-release-apks
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
