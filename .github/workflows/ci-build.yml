@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
         run: |
           chmod +x run
           find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
-          mkdir -p build-logs
+          mkdir -p build-logs .ci-failures
 
       - name: Build libcore AAR
         env:
@@ -66,7 +66,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cat > failure-summary.md <<EOF
+          mkdir -p .ci-failures
+          cat > .ci-failures/latest-libcore.md <<EOF
           ## CI Build APK failed in job: libcore
 
           Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -75,12 +76,17 @@ jobs:
           ### libcore log tail
 
           \`\`\`
-          $(if [ -f build-logs/libcore.log ]; then tail -n 180 build-logs/libcore.log; else echo 'No libcore.log was captured. Failure likely happened before the libcore build command.'; fi)
+          $(if [ -f build-logs/libcore.log ]; then tail -n 220 build-logs/libcore.log; else echo 'No libcore.log was captured. Failure likely happened before the libcore build command.'; fi)
           \`\`\`
           EOF
           gh issue create \
             --title "CI Build APK failed in libcore - run ${{ github.run_number }}" \
-            --body-file failure-summary.md || true
+            --body-file .ci-failures/latest-libcore.md || true
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .ci-failures/latest-libcore.md
+          git commit -m "Record latest libcore CI failure [skip ci]" || true
+          git push || true
 
   build-apk:
     name: Build OSS release APK
@@ -114,7 +120,7 @@ jobs:
         run: |
           chmod +x run
           find buildScript libcore -type f -name '*.sh' -exec chmod +x {} \;
-          mkdir -p build-logs
+          mkdir -p build-logs .ci-failures
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           echo "ndk.dir=${{ steps.ndk.outputs.ndk-path }}" >> local.properties
 
@@ -165,7 +171,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cat > failure-summary.md <<EOF
+          mkdir -p .ci-failures
+          cat > .ci-failures/latest-build-apk.md <<EOF
           ## CI Build APK failed in job: build-apk
 
           Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -174,15 +181,20 @@ jobs:
           ### prepare-gradle-assets log tail
 
           \`\`\`
-          $(if [ -f build-logs/prepare-gradle-assets.log ]; then tail -n 120 build-logs/prepare-gradle-assets.log; else echo 'No prepare-gradle-assets.log was captured.'; fi)
+          $(if [ -f build-logs/prepare-gradle-assets.log ]; then tail -n 160 build-logs/prepare-gradle-assets.log; else echo 'No prepare-gradle-assets.log was captured.'; fi)
           \`\`\`
 
           ### gradle log tail
 
           \`\`\`
-          $(if [ -f build-logs/gradle.log ]; then tail -n 180 build-logs/gradle.log; else echo 'No gradle.log was captured. Failure likely happened before Gradle assemble.'; fi)
+          $(if [ -f build-logs/gradle.log ]; then tail -n 220 build-logs/gradle.log; else echo 'No gradle.log was captured. Failure likely happened before Gradle assemble.'; fi)
           \`\`\`
           EOF
           gh issue create \
             --title "CI Build APK failed in build-apk - run ${{ github.run_number }}" \
-            --body-file failure-summary.md || true
+            --body-file .ci-failures/latest-build-apk.md || true
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .ci-failures/latest-build-apk.md
+          git commit -m "Record latest APK CI failure [skip ci]" || true
+          git push || true
