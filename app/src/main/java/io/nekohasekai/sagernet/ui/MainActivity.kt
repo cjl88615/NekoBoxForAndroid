@@ -94,6 +94,7 @@ class MainActivity : ThemedActivity(),
         binding.stats.setOnClickListener { if (DataStore.serviceState.connected) binding.stats.testConnection() }
 
         setContentView(binding.root)
+        DataStore.initGlobal()
         changeState(BaseService.State.Idle)
         connection.connect(this, this)
         DataStore.configurationStore.registerChangeListener(this)
@@ -462,7 +463,7 @@ class MainActivity : ThemedActivity(),
                 navigation.requestFocus()
             }
 
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+            KeyEvent.KEYCODE_RIGHT -> {
                 if (binding.drawerLayout.isOpen) {
                     binding.drawerLayout.close()
                     return true
