@@ -92,6 +92,7 @@
             app:title="@string/log_level"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.EditConfigPreference
+            app:defaultValue="@string/default_global_custom_config"
             app:icon="@drawable/ic_baseline_layers_24"
             app:key="globalCustomConfig"
             app:title="@string/custom_config"
