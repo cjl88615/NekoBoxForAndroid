@@ -5,7 +5,7 @@
         <item
             android:id="@+id/nav_configuration"
             android:icon="@drawable/ic_action_description"
-            android:title="@string/menu_configuration" />
+            android:title="@string/menu_server_list" />
 
         <item
             android:id="@+id/nav_group"
@@ -29,7 +29,8 @@
         <item
             android:id="@+id/nav_logcat"
             android:icon="@drawable/ic_baseline_bug_report_24"
-            android:title="@string/menu_log" />
+            android:title="@string/menu_log"
+            android:visible="false" />
         <item
             android:id="@+id/nav_traffic"
             android:icon="@drawable/ic_baseline_transform_24"
@@ -37,7 +38,8 @@
         <item
             android:id="@+id/nav_tools"
             android:icon="@drawable/baseline_construction_24"
-            android:title="@string/menu_tools" />
+            android:title="@string/menu_tools"
+            android:visible="false" />
     </group>
 
     <group
