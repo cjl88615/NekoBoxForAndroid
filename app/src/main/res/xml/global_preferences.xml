@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <PreferenceCategory app:title="@string/general_settings">
         <SwitchPreference
-            app:defaultValue="false"
+            app:defaultValue="true"
             app:icon="@drawable/ic_communication_phonelink_ring"
             app:key="isAutoConnect"
             app:summary="@string/auto_connect_summary"
@@ -67,6 +67,7 @@
             app:key="showGroupInNotification"
             app:title="@string/show_group_in_notification" />
         <SwitchPreference
+            app:defaultValue="true"
             app:icon="@drawable/ic_baseline_center_focus_weak_24"
             app:key="alwaysShowAddress"
             app:summary="@string/always_show_address_sum"
@@ -77,6 +78,7 @@
             app:summary="@string/metered_summary"
             app:title="@string/metered" />
         <SwitchPreference
+            app:defaultValue="true"
             app:icon="@drawable/baseline_developer_board_24"
             app:key="acquireWakeLock"
             app:summary="@string/acquire_wake_lock_summary"
@@ -103,10 +105,12 @@
             app:summary="@string/proxied_apps_summary"
             app:title="@string/proxied_apps" />
         <SwitchPreference
+            app:defaultValue="true"
             app:icon="@drawable/ic_baseline_legend_toggle_24"
             app:key="bypassLan"
             app:title="@string/route_opt_bypass_lan" />
         <SwitchPreference
+            app:defaultValue="true"
             app:key="bypassLanInCore"
             app:title="@string/bypass_lan_in_core" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
@@ -142,7 +146,7 @@
 
     <PreferenceCategory app:title="@string/cag_dns">
         <EditTextPreference
-            app:defaultValue="https://dns.google/dns-query"
+            app:defaultValue="https://8.8.8.8/dns-query"
             app:icon="@drawable/ic_action_dns"
             app:key="remoteDns"
             app:title="@string/remote_dns"
@@ -200,6 +204,7 @@
             app:summary="@string/append_http_proxy_sum"
             app:title="@string/append_http_proxy" />
         <SwitchPreference
+            app:defaultValue="true"
             app:icon="@drawable/ic_baseline_nat_24"
             app:key="allowAccess"
             app:summary="@string/allow_access_sum"
