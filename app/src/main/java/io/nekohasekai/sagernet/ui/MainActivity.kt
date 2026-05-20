@@ -463,7 +463,7 @@ class MainActivity : ThemedActivity(),
                 navigation.requestFocus()
             }
 
-            KeyEvent.KEYCODE_RIGHT -> {
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (binding.drawerLayout.isOpen) {
                     binding.drawerLayout.close()
                     return true
