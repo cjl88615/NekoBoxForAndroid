@@ -130,6 +130,8 @@ class MainActivity : ThemedActivity(),
         if (::navigation.isInitialized) {
             navigation.menu.findItem(R.id.nav_traffic)?.isVisible = clashApi
             navigation.menu.findItem(R.id.nav_tuiguang)?.isVisible = !isPlay
+            navigation.menu.findItem(R.id.nav_logcat)?.isVisible = false
+            navigation.menu.findItem(R.id.nav_tools)?.isVisible = false
         }
     }
 
@@ -338,8 +340,7 @@ class MainActivity : ThemedActivity(),
             R.id.nav_route -> displayFragment(RouteFragment())
             R.id.nav_settings -> displayFragment(SettingsFragment())
             R.id.nav_traffic -> displayFragment(WebviewFragment())
-            R.id.nav_tools -> displayFragment(ToolsFragment())
-            R.id.nav_logcat -> displayFragment(LogcatFragment())
+            R.id.nav_tools, R.id.nav_logcat -> return false
             R.id.nav_faq -> {
                 launchCustomTab("https://matsuridayo.github.io/")
                 return false
