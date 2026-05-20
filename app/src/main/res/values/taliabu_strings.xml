@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="taliabu_app_name">TaliabuVPN</string>
     <string name="menu_server_list">ServerList</string>
     <string name="default_global_custom_config"><![CDATA[{
   "dns": {
