@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_server_list">ServerList</string>
+    <string name="default_global_custom_config"><![CDATA[{
+  "dns": {
+    "+rules": [
+      {
+        "domain_suffix": ["anjuke.com", "ajkcdn.com", "58.com", "wuba.com"],
+        "server": "dns-remote"
+      },
+      {
+        "package_name": ["com.anjuke.android.app"],
+        "server": "dns-remote"
+      }
+    ]
+  }
+}]]></string>
+</resources>
