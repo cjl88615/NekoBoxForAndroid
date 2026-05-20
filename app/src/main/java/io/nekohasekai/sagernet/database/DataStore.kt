@@ -104,16 +104,16 @@ object DataStore : OnPreferenceDataStoreChangeListener {
 
     var mtu by configurationStore.stringToInt(Key.MTU) { 9000 }
 
-    var bypassLan by configurationStore.boolean(Key.BYPASS_LAN)
-    var bypassLanInCore by configurationStore.boolean(Key.BYPASS_LAN_IN_CORE)
+    var bypassLan by configurationStore.boolean(Key.BYPASS_LAN) { true }
+    var bypassLanInCore by configurationStore.boolean(Key.BYPASS_LAN_IN_CORE) { true }
 
-    var allowAccess by configurationStore.boolean(Key.ALLOW_ACCESS)
-    var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL)
+    var allowAccess by configurationStore.boolean(Key.ALLOW_ACCESS) { true }
+    var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL) { 1000 }
     var showGroupInNotification by configurationStore.boolean("showGroupInNotification")
 
     var globalCustomConfig by configurationStore.string(Key.GLOBAL_CUSTOM_CONFIG) { "" }
 
-    var remoteDns by configurationStore.string(Key.REMOTE_DNS) { "https://dns.google/dns-query" }
+    var remoteDns by configurationStore.string(Key.REMOTE_DNS) { "https://8.8.8.8/dns-query" }
     var directDns by configurationStore.string(Key.DIRECT_DNS) { "https://223.5.5.5/dns-query" }
     var enableDnsRouting by configurationStore.boolean(Key.ENABLE_DNS_ROUTING) { true }
     var enableFakeDns by configurationStore.boolean(Key.ENABLE_FAKEDNS) { true }
@@ -121,7 +121,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var rulesProvider by configurationStore.stringToInt(Key.RULES_PROVIDER)
     var logLevel by configurationStore.stringToInt(Key.LOG_LEVEL)
     var logBufSize by configurationStore.int(Key.LOG_BUF_SIZE) { 0 }
-    var acquireWakeLock by configurationStore.boolean(Key.ACQUIRE_WAKE_LOCK)
+    var acquireWakeLock by configurationStore.boolean(Key.ACQUIRE_WAKE_LOCK) { true }
 
     // hopefully hashCode = mHandle doesn't change, currently this is true from KitKat to Nougat
     private val userIndex by lazy { Binder.getCallingUserHandle().hashCode() }
@@ -152,12 +152,12 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var individual by configurationStore.string(Key.INDIVIDUAL)
     var showDirectSpeed by configurationStore.boolean(Key.SHOW_DIRECT_SPEED) { true }
 
-    val persistAcrossReboot by configurationStore.boolean(Key.PERSIST_ACROSS_REBOOT) { false }
+    val persistAcrossReboot by configurationStore.boolean(Key.PERSIST_ACROSS_REBOOT) { true }
 
     var appendHttpProxy by configurationStore.boolean(Key.APPEND_HTTP_PROXY)
     var connectionTestURL by configurationStore.string(Key.CONNECTION_TEST_URL) { CONNECTION_TEST_URL }
     var connectionTestConcurrent by configurationStore.int("connectionTestConcurrent") { 5 }
-    var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
+    var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS) { true }
 
     var tunImplementation by configurationStore.stringToInt(Key.TUN_IMPLEMENTATION) { TunImplementation.GVISOR }
     var profileTrafficStatistics by configurationStore.boolean(Key.PROFILE_TRAFFIC_STATISTICS) { true }
