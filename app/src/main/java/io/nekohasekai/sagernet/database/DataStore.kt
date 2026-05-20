@@ -6,12 +6,14 @@ import io.nekohasekai.sagernet.CONNECTION_TEST_URL
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.TunImplementation
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.database.preference.RoomPreferenceDataStore
+import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.boolean
 import io.nekohasekai.sagernet.ktx.int
 import io.nekohasekai.sagernet.ktx.long
@@ -84,6 +86,10 @@ object DataStore : OnPreferenceDataStoreChangeListener {
         return groups.find { it.type == GroupType.BASIC }!!.id
     }
 
+    private fun defaultGlobalCustomConfig(): String {
+        return app.getString(R.string.default_global_custom_config)
+    }
+
     var appTLSVersion by configurationStore.string(Key.APP_TLS_VERSION)
     var enableClashAPI by configurationStore.boolean(Key.ENABLE_CLASH_API)
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
@@ -111,7 +117,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL) { 1000 }
     var showGroupInNotification by configurationStore.boolean("showGroupInNotification")
 
-    var globalCustomConfig by configurationStore.string(Key.GLOBAL_CUSTOM_CONFIG) { "" }
+    var globalCustomConfig by configurationStore.string(Key.GLOBAL_CUSTOM_CONFIG) { defaultGlobalCustomConfig() }
 
     var remoteDns by configurationStore.string(Key.REMOTE_DNS) { "https://8.8.8.8/dns-query" }
     var directDns by configurationStore.string(Key.DIRECT_DNS) { "https://223.5.5.5/dns-query" }
@@ -132,6 +138,12 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     fun initGlobal() {
         if (configurationStore.getString(Key.MIXED_PORT) == null) {
             mixedPort = mixedPort
+        }
+        if (configurationStore.getString(Key.SPEED_INTERVAL).isNullOrBlank() || configurationStore.getString(Key.SPEED_INTERVAL) == "0") {
+            speedInterval = 1000
+        }
+        if (configurationStore.getString(Key.GLOBAL_CUSTOM_CONFIG).isNullOrBlank()) {
+            globalCustomConfig = defaultGlobalCustomConfig()
         }
     }
 
